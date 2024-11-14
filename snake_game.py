@@ -60,6 +60,8 @@ class SnakeGame:
         self.draw()
 
     def move_snake(self):
+        if len(self.path) > 0:
+            self.direction = self.path.pop()
         if self.direction == "up":
             self.head[1] -= 1
         elif self.direction == "down":
@@ -88,12 +90,13 @@ class SnakeGame:
                 self.running = False
 
     def generate_food(self):
-        x = random.randint(0, 59)
-        y = random.randint(0, 59)
-        self.food = [x, y]
-        for segment in self.body:
-            if segment == self.food:
-                self.generate_food()
+        while True:
+            x = random.randint(0, 59)
+            y = random.randint(0, 59)
+            self.food = [x, y]
+            if self.food not in self.body and self.food != self.head:
+                break
+        self.path = find_path(self.body, self.head, self.food, 60, 60)
 
     def draw(self):
         self.canvas.delete("all")
@@ -114,6 +117,38 @@ class SnakeGame:
             self.canvas.create_text(300, 340, text="Press Esc to Quit", fill="red")
             self.window.bind("<Return>", self.reset)
             self.window.bind("<Escape>", self.over)
+
+
+def find_path(body, head, food, m, n, visited=set()):
+    queue = [tuple(head)]
+    visited = {tuple(head)}
+    food = tuple(food)
+    parent = {}
+    while len(queue) > 0:
+        x, y = queue.pop(0)
+        if (x, y) == food:
+            break
+        if [x, y-1] not in body and (x, y-1) not in visited and y-1 >= 0:
+            queue.append((x, y-1))
+            visited.add((x, y-1))
+            parent[(x, y-1)] = ((x, y), "up")
+        if [x, y+1] not in body and (x, y+1) not in visited and y+1 < m:
+            queue.append((x, y+1))
+            visited.add((x, y+1))
+            parent[(x, y+1)] = ((x, y), "down")
+        if [x-1, y] not in body and (x-1, y) not in visited and x-1 >= 0:
+            queue.append((x-1, y))
+            visited.add((x-1, y))
+            parent[(x-1, y)] = ((x, y), "left")
+        if [x+1, y] not in body and (x+1, y) not in visited and x+1 < n:
+            queue.append((x+1, y))
+            visited.add((x+1, y))
+            parent[(x+1, y)] = ((x, y), "right")
+    path = []
+    while food in parent:
+        food, direction = parent[food]
+        path.append(direction)
+    return path
 
 
 if __name__ == "__main__":
