@@ -12,7 +12,7 @@ class SnakeGame:
         self.speed = 200
 
         self.generate_food()
-        
+
         self.window = tk.Tk()
         self.window.title("Snake Game")
         self.canvas = tk.Canvas(self.window, width=700, height=610)
@@ -21,6 +21,9 @@ class SnakeGame:
         self.running = True
         self.update()
         self.window.mainloop()
+
+    def over(self, event):
+        self.window.destroy()
 
     def on_key_press(self, event):
         if event.keysym == "Up" and self.direction != "down":
@@ -33,20 +36,22 @@ class SnakeGame:
             self.direction = "right"
         elif event.keysym == "P" or event.keysym == "p":
             self.running = not self.running
-    
-    def reset(self):
+
+    def reset(self, event):
+        self.window.unbind("<Return>")
+        self.window.unbind("<Escape>")
         self.body = []
         self.direction = "right"
         self.head = [30, 30]
         self.food = []
         self.score = 0
-        self.speed = 100
+        self.speed = 200
         self.generate_food()
         self.running = True
         self.update()
-    
+
     def update(self):
-        self.window.after(self.speed, self.update) # speed时间后，执行play
+        self.window.after(self.speed, self.update)  # speed时间后，执行play
         if not self.running:
             return
         self.move_snake()
@@ -101,9 +106,14 @@ class SnakeGame:
                                          (segment[0] + 1) * 10 + 5, (segment[1] + 1) * 10+5, fill="green")
         self.canvas.create_rectangle(self.food[0] * 10+5, self.food[1] * 10+5,
                                      (self.food[0] + 1) * 10+5, (self.food[1] + 1) * 10+5, fill="red")
-        self.canvas.create_text(655, 550, text=f"Score: {self.score}\nSpeed: {self.speed}\n\nKey Map:\nPause/Start: P", justify="left")
+        self.canvas.create_text(
+            655, 550, text=f"Score: {self.score}\nSpeed: {self.speed}\n\nKey Map:\nPause/Start: P", justify="left")
         if not self.running:
-            self.canvas.create_text(300, 300, text=f"Game Over! Your Score is {self.score}", fill="red",font="bold")
+            self.canvas.create_text(300, 300, text=f"Game Over! Your Score is {self.score}!", fill="red")
+            self.canvas.create_text(300, 320, text="Press Enter to Reset", fill="red")
+            self.canvas.create_text(300, 340, text="Press Esc to Quit", fill="red")
+            self.window.bind("<Return>", self.reset)
+            self.window.bind("<Escape>", self.over)
 
 
 if __name__ == "__main__":
