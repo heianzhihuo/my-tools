@@ -4,12 +4,14 @@ import tkinter as tk
 
 class SnakeGame:
     def __init__(self) -> None:
-        self.body = []
         self.direction = "right"
         self.head = [30, 30]
-        self.food = []
+        self.body = [tuple(self.head)]
+        self.food = ()
         self.score = 0
-        self.speed = 200
+        self.speed = 300
+        self.speed_ = None
+        self.path = []
 
         self.generate_food()
 
@@ -18,49 +20,68 @@ class SnakeGame:
         self.canvas = tk.Canvas(self.window, width=700, height=610)
         self.canvas.pack()
         self.window.bind("<Key>", self.on_key_press)
+        self.window.bind("<KeyPress-space>", self.speed_up)
+        self.window.bind("<KeyRelease-space>", self.speed_down)
         self.running = True
         self.update()
         self.window.mainloop()
 
-    def over(self, event):
-        self.window.destroy()
-
-    def on_key_press(self, event):
-        if event.keysym == "Up" and self.direction != "down":
-            self.direction = "up"
-        elif event.keysym == "Down" and self.direction != "up":
-            self.direction = "down"
-        elif event.keysym == "Left" and self.direction != "right":
-            self.direction = "left"
-        elif event.keysym == "Right" and self.direction != "left":
-            self.direction = "right"
-        elif event.keysym == "P" or event.keysym == "p":
-            self.running = not self.running
-
     def reset(self, event):
         self.window.unbind("<Return>")
         self.window.unbind("<Escape>")
-        self.body = []
         self.direction = "right"
         self.head = [30, 30]
+        self.body = [tuple(self.head)]
         self.food = []
         self.score = 0
-        self.speed = 200
+        self.speed = 300
         self.generate_food()
         self.running = True
         self.update()
 
     def update(self):
-        self.window.after(self.speed, self.update)  # speed时间后，执行play
-        if not self.running:
-            return
+        if self.running:
+            self.window.after(self.speed, self.update)  # speed时间后，update.
         self.move_snake()
         self.check_food()
         self.check_collisions()
         self.draw()
 
+    def over(self, event):
+        self.window.destroy()
+
+    def speed_up(self, event=None):
+        if event and not self.speed_:
+            self.speed_ = self.speed
+            self.speed = self.speed // 2
+        if not event:
+            if self.speed_:
+                self.speed_ = max(10, self.speed_-10)
+                self.speed = self.speed_ // 2
+            else:
+                self.speed = max(10, self.speed-10)
+
+    def speed_down(self, event):
+        if self.speed_:
+            self.speed = self.speed_
+            self.speed_ = None
+
+    def on_key_press(self, event):
+        if event.keysym in ("Up", "W", "w") and self.direction != "down":
+            self.direction = "up"
+        elif event.keysym in ("Down", "S", "s") and self.direction != "up":
+            self.direction = "down"
+        elif event.keysym in ("Left", "A", "a") and self.direction != "right":
+            self.direction = "left"
+        elif event.keysym in ("Right", "D", "d") and self.direction != "left":
+            self.direction = "right"
+        elif event.keysym == "P" or event.keysym == "p":
+            self.running = not self.running
+
     def move_snake(self):
-        if len(self.path) > 0:
+        # if not self.path:
+        #     self.path = find_path(self.body, self.food, 60, 60)
+        if self.path:
             self.direction = self.path.pop()
         if self.direction == "up":
             self.head[1] -= 1
@@ -72,34 +93,31 @@ class SnakeGame:
             self.head[0] += 1
         if len(self.body) > 0:
             self.tail = self.body.pop()
-        self.body.insert(0, list(self.head))
+        self.body.insert(0, tuple(self.head))
 
     def check_food(self):
         if self.head == self.food:
             self.score += 1
-            self.body.append(list(self.tail))
+            self.body.append(tuple(self.tail))
             self.generate_food()
-            if self.speed > 10:
-                self.speed -= 10
+            self.speed_up()
 
     def check_collisions(self):
-        if self.head[0] < 0 or self.head[0] > 59 or self.head[1] < 0 or self.head[1] > 59:
+        if self.head[0] < 0 or self.head[0] >= 60 or self.head[1] < 0 or self.head[1] >= 60:
             self.running = False
-        for segment in self.body[1:]:
-            if self.head == segment:
-                self.running = False
+        if tuple(self.head) in self.body[1:]:
+            self.running = False
 
     def generate_food(self):
         while True:
             x = random.randint(0, 59)
             y = random.randint(0, 59)
-            self.food = [x, y]
-            if self.food not in self.body and self.food != self.head:
+            if (x, y) not in self.body and [x, y] != self.head:
+                self.food = [x, y]
                 break
-        self.path = find_path(self.body, self.head, self.food, 60, 60)
 
     def draw(self):
-        self.canvas.delete("all")
+        self.canvas.delete("all")  # 清空后重画
         self.canvas.create_rectangle(5, 5, 605, 605)
         if not self.running:
             del self.body[0]
@@ -119,28 +137,51 @@ class SnakeGame:
             self.window.bind("<Escape>", self.over)
 
 
-def find_path(body, head, food, m, n, visited=set()):
-    queue = [tuple(head)]
-    visited = {tuple(head)}
+def DFS(body, food, m, n, k=10):
+    x, y = body[0]
+    if x < 0 or x >= m or y < 0 or y >= n or (x, y) in body[1:]:
+        return -100, []
+    if (x, y) == tuple(food):
+        return 20, []
+    if k <= 0:
+        return 1, []
+    up_ans = DFS([(x, y - 1)] + body[:-1], food, m, n, k - 1)
+    down_ans = DFS([(x, y + 1)] + body[:-1], food, m, n, k - 1)
+    left_ans = DFS([(x - 1, y)] + body[:-1], food, m, n, k - 1)
+    right_ans = DFS([(x + 1, y)] + body[:-1], food, m, n, k - 1)
+    ans = max(up_ans[0], down_ans[0], left_ans[0], right_ans[0])
+    if ans == up_ans[0]:
+        return ans + 1, up_ans[1] + ["up"]
+    elif ans == down_ans[0]:
+        return ans + 1, down_ans[1] + ["down"]
+    elif ans == left_ans[0]:
+        return ans + 1, left_ans[1] + ["left"]
+    else:
+        return ans + 1, right_ans[1] + ["right"]
+
+
+def find_path(body, food, m, n, visited=set()):
+    queue = [body[0]]
+    visited = {body[0]}
     food = tuple(food)
     parent = {}
-    while len(queue) > 0:
+    while queue:
         x, y = queue.pop(0)
         if (x, y) == food:
             break
-        if [x, y-1] not in body and (x, y-1) not in visited and y-1 >= 0:
+        if (x, y-1) not in body and (x, y-1) not in visited and y-1 >= 0:
             queue.append((x, y-1))
             visited.add((x, y-1))
             parent[(x, y-1)] = ((x, y), "up")
-        if [x, y+1] not in body and (x, y+1) not in visited and y+1 < m:
+        if (x, y+1) not in body and (x, y+1) not in visited and y+1 < m:
             queue.append((x, y+1))
             visited.add((x, y+1))
             parent[(x, y+1)] = ((x, y), "down")
-        if [x-1, y] not in body and (x-1, y) not in visited and x-1 >= 0:
+        if (x-1, y) not in body and (x-1, y) not in visited and x-1 >= 0:
             queue.append((x-1, y))
             visited.add((x-1, y))
             parent[(x-1, y)] = ((x, y), "left")
-        if [x+1, y] not in body and (x+1, y) not in visited and x+1 < n:
+        if (x+1, y) not in body and (x+1, y) not in visited and x+1 < n:
             queue.append((x+1, y))
             visited.add((x+1, y))
             parent[(x+1, y)] = ((x, y), "right")
@@ -148,6 +189,10 @@ def find_path(body, head, food, m, n, visited=set()):
     while food in parent:
         food, direction = parent[food]
         path.append(direction)
+    if not path:
+        ans = DFS(body, food, m, n)
+        print(ans)
+        path = ans[1]
     return path
 
 
