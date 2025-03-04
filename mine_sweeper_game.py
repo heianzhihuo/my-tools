@@ -3,10 +3,22 @@ import sys
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QKeyEvent
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QDialogButtonBox,
-                             QGridLayout, QHBoxLayout, QLabel, QMainWindow,
-                             QMessageBox, QPushButton, QSpinBox, QVBoxLayout,
-                             QWidget, qApp)
+from PyQt5.QtWidgets import (
+    QAction,
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+    qApp,
+)
 
 
 class Board:
@@ -104,6 +116,9 @@ class DoubleClickButton(QPushButton):
     def __init__(self, text):
         super().__init__(text)
 
+    def mousePressEvent(self, e):
+        return super().mousePressEvent(e)
+
     # 重写鼠标双击事件
     def mouseDoubleClickEvent(self, event):
         self.double_clicked.emit()  # 发送双击信号
@@ -111,35 +126,36 @@ class DoubleClickButton(QPushButton):
 
 
 class CustomDifficultyDialog(QDialog):
-    def __init__(self, parent=None):
+
+    def __init__(self, parent=None, width=9, height=9, mine_count=10):
         super().__init__(parent)
-        
+
         self.setWindowTitle("自定义难度")
-        
+
         layout = QVBoxLayout(self)
-        
+
         self.width_spinbox = QSpinBox(self)
         self.width_spinbox.setMinimum(1)
         self.width_spinbox.setMaximum(100)
-        self.width_spinbox.setValue(9)
+        self.width_spinbox.setValue(width)
         layout.addWidget(QLabel("宽度:"))
         layout.addWidget(self.width_spinbox)
 
         self.height_spinbox = QSpinBox()
         self.height_spinbox.setMinimum(1)
         self.height_spinbox.setMaximum(100)
-        self.height_spinbox.setValue(9)
+        self.height_spinbox.setValue(height)
         layout.addWidget(QLabel("高度:"))
         layout.addWidget(self.height_spinbox)
 
         self.mine_count_spinbox = QSpinBox()
-        self.mine_count_spinbox.setMinimum(1)
+        self.mine_count_spinbox.setMinimum(0)
         self.mine_count_spinbox.setMaximum(999)  # 最大值可以根据实际情况调整
-        self.mine_count_spinbox.setValue(10)
+        self.mine_count_spinbox.setValue(mine_count)
         layout.addWidget(QLabel("地雷数:"))
         layout.addWidget(self.mine_count_spinbox)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel,Qt.Horizontal, self)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal, self)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -147,6 +163,7 @@ class CustomDifficultyDialog(QDialog):
 
     def get_values(self):
         return self.width_spinbox.value(), self.height_spinbox.value(), self.mine_count_spinbox.value()
+
 
 class MineSweeper(QMainWindow):
     def __init__(self):
@@ -228,7 +245,7 @@ class MineSweeper(QMainWindow):
 
         difficulty_menu = game_menu.addMenu("难度")
         self.difficulty_actions = []
-        for diff in ["初级", "中级", "高级","自定义"]:
+        for diff in ["初级", "中级", "高级", "自定义"]:
             action = difficulty_menu.addAction(diff)
             action.triggered.connect(lambda checked, d=diff: self.change_difficulty(d))
             action.setCheckable(True)
@@ -272,7 +289,7 @@ class MineSweeper(QMainWindow):
             self.board = Board(width=30, height=16, mine_count=99)
         elif difficulty == "自定义":
             self.difficulty_actions[3].setChecked(True)
-            dialog = CustomDifficultyDialog(self)
+            dialog = CustomDifficultyDialog(self, self.board.width, self.board.height, self.board.mine_count)
             if dialog.exec_():
                 width, height, mine_count = dialog.get_values()
                 self.board = Board(width=width, height=height, mine_count=mine_count)
@@ -294,7 +311,7 @@ class MineSweeper(QMainWindow):
         if self.board.game_over or self.board.game_win:
             return
         if self.board.first_click:
-            self.start_timer()
+            self.timer.start(1000)  # 定时器每1000毫秒（即1秒）触发一次
         self.board.reveal(x, y)
         self.update_board()
         if self.board.game_over or self.board.game_win:
@@ -316,7 +333,7 @@ class MineSweeper(QMainWindow):
         select_button = self.select_button
         if select_button is None:
             return super().keyPressEvent(event)
-        select_style = "QPushButton {border:1px solid rgb(230,230,0)}"
+        select_style = "QPushButton {border:2px solid rgb(0,255,0)}"
         btn = self.buttons[select_button[0]][select_button[1]]
         btn.setStyleSheet(btn.styleSheet().replace(select_style, ""))
 
@@ -334,12 +351,14 @@ class MineSweeper(QMainWindow):
             self.on_right_click(select_button[1], select_button[0])
         elif event.key() == Qt.Key_C:
             self.on_double_click(select_button[1], select_button[0])
+        elif event.key() == Qt.Key_P:
+            if self.timer.isActive():
+                self.timer.stop()
+            else:
+                self.timer.start(1000)
         btn = self.buttons[select_button[0]][select_button[1]]
         btn.setStyleSheet(f"{btn.styleSheet()} {select_style}")
         return super().keyPressEvent(event)
-
-    def start_timer(self):
-        self.timer.start(1000)  # 定时器每1000毫秒（即1秒）触发一次
 
     def update_mines_left_label(self):
         # 更新剩余地雷数标签
