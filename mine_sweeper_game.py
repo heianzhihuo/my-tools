@@ -2,7 +2,7 @@ import random
 import sys
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtGui import QKeyEvent, QKeySequence
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -159,7 +159,6 @@ class CustomDifficultyDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-        self.grabKeyboard()
 
     def get_values(self):
         return self.width_spinbox.value(), self.height_spinbox.value(), self.mine_count_spinbox.value()
@@ -178,6 +177,7 @@ class MineSweeper(QMainWindow):
         self.timer.timeout.connect(self.update_timer)
         self.time = 0
         self.select_button = None
+        self.start_new_game()
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -209,7 +209,6 @@ class MineSweeper(QMainWindow):
 
         self.setCentralWidget(central_widget)
         self.init_board()
-        self.grabKeyboard()
 
     def init_board(self):
         for row in self.buttons:
@@ -220,6 +219,7 @@ class MineSweeper(QMainWindow):
             row = []
             for x in range(self.board.width):
                 btn = DoubleClickButton(self)
+                btn.setFocusPolicy(Qt.NoFocus)
                 btn.setFixedSize(30, 30)
                 btn.setContentsMargins(0, 0, 0, 0)
                 btn.setStyleSheet("QPushButton {background-color:gray;} ")
@@ -240,6 +240,7 @@ class MineSweeper(QMainWindow):
         game_menu = menu_bar.addMenu("游戏")
         # 新游戏动作
         new_game_action = QAction("新游戏", self)
+        new_game_action.setShortcut(QKeySequence("Ctrl+R"))
         new_game_action.triggered.connect(self.start_new_game)
         game_menu.addAction(new_game_action)
 
@@ -250,10 +251,16 @@ class MineSweeper(QMainWindow):
             action.triggered.connect(lambda checked, d=diff: self.change_difficulty(d))
             action.setCheckable(True)
             self.difficulty_actions.append(action)
+        self.difficulty_actions[0].setShortcut(QKeySequence("Ctrl+1"))
+        self.difficulty_actions[1].setShortcut(QKeySequence("Ctrl+2"))
+        self.difficulty_actions[2].setShortcut(QKeySequence("Ctrl+3"))
+        
         self.difficulty_actions[0].setChecked(True)
 
         # 退出动作
         exit_action = QAction("退出", self)
+        QKeySequence.StandardKey
+        exit_action.setShortcut(QKeySequence("Ctrl+W"))
         exit_action.triggered.connect(qApp.quit)
         game_menu.addAction(exit_action)
 
@@ -312,6 +319,7 @@ class MineSweeper(QMainWindow):
             return
         if self.board.first_click:
             self.timer.start(1000)  # 定时器每1000毫秒（即1秒）触发一次
+        self.select_button = [y, x]
         self.board.reveal(x, y)
         self.update_board()
         if self.board.game_over or self.board.game_win:
