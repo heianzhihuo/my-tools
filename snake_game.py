@@ -23,6 +23,7 @@ class SnakeGame:
         self.window.bind("<KeyPress-space>", self.speed_up)
         self.window.bind("<KeyRelease-space>", self.speed_down)
         self.running = True
+        self.auto_path = False
         self.update()
         self.window.mainloop()
 
@@ -56,10 +57,10 @@ class SnakeGame:
             self.speed = self.speed // 2
         if not event:
             if self.speed_:
-                self.speed_ = max(10, self.speed_-10)
+                self.speed_ = max(20, self.speed_ - 10)
                 self.speed = self.speed_ // 2
             else:
-                self.speed = max(10, self.speed-10)
+                self.speed = max(20, self.speed - 10)
 
     def speed_down(self, event):
         if self.speed_:
@@ -77,10 +78,15 @@ class SnakeGame:
             self.direction = "right"
         elif event.keysym == "P" or event.keysym == "p":
             self.running = not self.running
+        elif event.keysym in {"K", "k"}:
+            self.auto_path = not self.auto_path
+            if not self.auto_path:
+                self.speed = 100
+                self.path = []
 
     def move_snake(self):
-        # if not self.path:
-        #     self.path = find_path(self.body, self.food, 60, 60)
+        if self.auto_path and not self.path:
+            self.path = find_path(self.body, self.food, 60, 60)
         if self.path:
             self.direction = self.path.pop()
         if self.direction == "up":
@@ -100,7 +106,8 @@ class SnakeGame:
             self.score += 1
             self.body.append(tuple(self.tail))
             self.generate_food()
-            self.speed_up()
+            if self.score % 10 == 0:
+                self.speed_up()
 
     def check_collisions(self):
         if self.head[0] < 0 or self.head[0] >= 60 or self.head[1] < 0 or self.head[1] >= 60:
@@ -123,12 +130,23 @@ class SnakeGame:
             del self.body[0]
             self.body.append(list(self.tail))
         for segment in self.body:
-            self.canvas.create_rectangle(segment[0] * 10 + 5, segment[1] * 10 + 5,
-                                         (segment[0] + 1) * 10 + 5, (segment[1] + 1) * 10+5, fill="green")
-        self.canvas.create_rectangle(self.food[0] * 10+5, self.food[1] * 10+5,
-                                     (self.food[0] + 1) * 10+5, (self.food[1] + 1) * 10+5, fill="red")
+            self.canvas.create_rectangle(
+                segment[0] * 10 + 5,
+                segment[1] * 10 + 5,
+                (segment[0] + 1) * 10 + 5,
+                (segment[1] + 1) * 10 + 5,
+                fill="green",
+            )
+        self.canvas.create_rectangle(
+            self.food[0] * 10 + 5,
+            self.food[1] * 10 + 5,
+            (self.food[0] + 1) * 10 + 5,
+            (self.food[1] + 1) * 10 + 5,
+            fill="red",
+        )
         self.canvas.create_text(
-            655, 550, text=f"Score: {self.score}\nSpeed: {self.speed}\n\nKey Map:\nPause/Start: P", justify="left")
+            655, 550, text=f"Score: {self.score}\nSpeed: {self.speed}\n\nKey Map:\nPause/Start: P", justify="left"
+        )
         if not self.running:
             self.canvas.create_text(300, 300, text=f"Game Over! Your Score is {self.score}!", fill="red")
             self.canvas.create_text(300, 320, text="Press Enter to Reset", fill="red")
@@ -169,22 +187,22 @@ def find_path(body, food, m, n, visited=set()):
         x, y = queue.pop(0)
         if (x, y) == food:
             break
-        if (x, y-1) not in body and (x, y-1) not in visited and y-1 >= 0:
-            queue.append((x, y-1))
-            visited.add((x, y-1))
-            parent[(x, y-1)] = ((x, y), "up")
-        if (x, y+1) not in body and (x, y+1) not in visited and y+1 < m:
-            queue.append((x, y+1))
-            visited.add((x, y+1))
-            parent[(x, y+1)] = ((x, y), "down")
-        if (x-1, y) not in body and (x-1, y) not in visited and x-1 >= 0:
-            queue.append((x-1, y))
-            visited.add((x-1, y))
-            parent[(x-1, y)] = ((x, y), "left")
-        if (x+1, y) not in body and (x+1, y) not in visited and x+1 < n:
-            queue.append((x+1, y))
-            visited.add((x+1, y))
-            parent[(x+1, y)] = ((x, y), "right")
+        if (x, y - 1) not in body and (x, y - 1) not in visited and y - 1 >= 0:
+            queue.append((x, y - 1))
+            visited.add((x, y - 1))
+            parent[(x, y - 1)] = ((x, y), "up")
+        if (x, y + 1) not in body and (x, y + 1) not in visited and y + 1 < m:
+            queue.append((x, y + 1))
+            visited.add((x, y + 1))
+            parent[(x, y + 1)] = ((x, y), "down")
+        if (x - 1, y) not in body and (x - 1, y) not in visited and x - 1 >= 0:
+            queue.append((x - 1, y))
+            visited.add((x - 1, y))
+            parent[(x - 1, y)] = ((x, y), "left")
+        if (x + 1, y) not in body and (x + 1, y) not in visited and x + 1 < n:
+            queue.append((x + 1, y))
+            visited.add((x + 1, y))
+            parent[(x + 1, y)] = ((x, y), "right")
     path = []
     while food in parent:
         food, direction = parent[food]
