@@ -254,12 +254,11 @@ class MineSweeper(QMainWindow):
         self.difficulty_actions[0].setShortcut(QKeySequence("Ctrl+1"))
         self.difficulty_actions[1].setShortcut(QKeySequence("Ctrl+2"))
         self.difficulty_actions[2].setShortcut(QKeySequence("Ctrl+3"))
-        
+
         self.difficulty_actions[0].setChecked(True)
 
         # 退出动作
         exit_action = QAction("退出", self)
-        QKeySequence.StandardKey
         exit_action.setShortcut(QKeySequence("Ctrl+W"))
         exit_action.triggered.connect(qApp.quit)
         game_menu.addAction(exit_action)
@@ -275,6 +274,7 @@ class MineSweeper(QMainWindow):
         # 重置游戏状态
         self.time = 0
         self.board.reset()
+        self.select_button = [self.board.height // 2, self.board.width // 2]
         self.init_board()
         self.timer.stop()
         self.time_label.setText(str(self.time))
@@ -330,14 +330,13 @@ class MineSweeper(QMainWindow):
             self.show_game_win()
 
     def on_right_click(self, x, y):
+        if self.board.game_over or self.board.game_win:
+            return
         self.board.toggle_flag(x, y)
         self.update_board()
         self.update_mines_left_label()
 
     def keyPressEvent(self, event: QKeyEvent):
-        dir_keys = (Qt.Key_W, Qt.Key_S, Qt.Key_A, Qt.Key_D, Qt.Key_Up, Qt.Key_Down, Qt.Key_Right, Qt.Key_Left)
-        if event.key() in dir_keys and self.select_button is None:
-            self.select_button = [self.board.width // 2, self.board.height // 2]
         select_button = self.select_button
         if select_button is None:
             return super().keyPressEvent(event)
@@ -430,6 +429,7 @@ class MineSweeper(QMainWindow):
 
 
 if __name__ == "__main__":
+    
     app = QApplication(sys.argv)
     sweeper = MineSweeper()
     sweeper.show()
