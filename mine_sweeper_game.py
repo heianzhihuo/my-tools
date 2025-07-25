@@ -2,7 +2,7 @@ import random
 import sys
 
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QKeyEvent, QKeySequence
+from PyQt5.QtGui import QKeyEvent, QKeySequence, QIcon
 from PyQt5.QtWidgets import (
     QAction,
     QApplication,
@@ -31,6 +31,7 @@ class Board:
         self.board = [[0] * self.width for _ in range(self.height)]  # 雷区标记
         self.revealed = [[False] * self.width for _ in range(self.height)]  # 是否点击
         self.flags = [[False] * self.width for _ in range(self.height)]  # 是否标记为雷
+        self.mine_pro = [[0] * self.width for _ in range(self.height)]  # 雷的概率
         self.mine_left = self.mine_count  # 剩余未标记的雷数
         self.game_over = False
         self.game_win = False
@@ -59,6 +60,13 @@ class Board:
                         nx, ny = x + dx, y + dy
                         if 0 <= nx < self.width and 0 <= ny < self.height and self.board[ny][nx] == -1:
                             self.board[y][x] += 1
+
+    def calculate_mine_probability(self):
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.revealed[y][x] or self.flags[y][x]:
+                    self.mine_pro[y][x] = 0  # 标记为雷，或已点击，无需计算概率
+                    continue
 
     def reveal_around(self, x, y):
         if not self.revealed[y][x]:
@@ -168,16 +176,18 @@ class MineSweeper(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("扫雷")
-        self.difficulty = "初级"  # 默认难度
-        self.board = Board()  # 默认使用初级难度的设置
+        self.setWindowIconText("💣")
+
         self.buttons = []
         self.init_ui()
         self.create_menu()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_timer)
         self.time = 0
         self.select_button = None
-        self.start_new_game()
+
+        self.change_difficulty("初级")  # 默认难度
 
     def init_ui(self):
         layout = QVBoxLayout()
@@ -186,7 +196,7 @@ class MineSweeper(QMainWindow):
         top_layout = QHBoxLayout()
 
         # 剩余地雷数标签
-        self.mine_left_label = QLabel(str(self.board.mine_left))
+        self.mine_left_label = QLabel(str(0))
         # 设置字体颜色为蓝色，字体大小为24pt
         self.mine_left_label.setStyleSheet("QLabel { color: red; font-size: 24pt; }")
         # 将剩余地雷数标签添加到顶部布局中并设置对其方式为左对齐
@@ -208,7 +218,7 @@ class MineSweeper(QMainWindow):
         central_widget.setLayout(layout)
 
         self.setCentralWidget(central_widget)
-        self.init_board()
+        # self.init_board()
 
     def init_board(self):
         for row in self.buttons:
@@ -285,21 +295,25 @@ class MineSweeper(QMainWindow):
         self.difficulty = difficulty
         for action in self.difficulty_actions:
             action.setChecked(False)
+
+        action_id, width, height, mine_count = 0, 9, 9, 10
         if difficulty == "初级":
-            self.difficulty_actions[0].setChecked(True)
-            self.board = Board(width=9, height=9, mine_count=10)
+            action_id, width, height, mine_count = 0, 9, 9, 10
         elif difficulty == "中级":
-            self.difficulty_actions[1].setChecked(True)
-            self.board = Board(width=16, height=16, mine_count=40)
+            action_id, width, height, mine_count = 1, 16, 16, 40
         elif difficulty == "高级":
-            self.difficulty_actions[2].setChecked(True)
-            self.board = Board(width=30, height=16, mine_count=99)
+            action_id, width, height, mine_count = 2, 30, 16, 99
         elif difficulty == "自定义":
-            self.difficulty_actions[3].setChecked(True)
+            action_id = 3
             dialog = CustomDifficultyDialog(self, self.board.width, self.board.height, self.board.mine_count)
             if dialog.exec_():
                 width, height, mine_count = dialog.get_values()
-                self.board = Board(width=width, height=height, mine_count=mine_count)
+        else:
+            action_id, width, height, mine_count = 0, 9, 9, 10  # 默认为简单
+
+        self.difficulty_actions[action_id].setChecked(True)
+        self.board = Board(width=width, height=height, mine_count=mine_count)
+        self.setFixedSize(18 + width * 30, 83 + height * 30)  #
         self.start_new_game()
 
     def on_double_click(self, x, y):
@@ -317,7 +331,7 @@ class MineSweeper(QMainWindow):
     def on_click(self, x, y):
         if self.board.game_over or self.board.game_win:
             return
-        if self.board.first_click:
+        if self.board.first_click or not self.timer.isActive():
             self.timer.start(1000)  # 定时器每1000毫秒（即1秒）触发一次
         self.select_button = [y, x]
         self.board.reveal(x, y)
@@ -337,12 +351,32 @@ class MineSweeper(QMainWindow):
         self.update_mines_left_label()
 
     def keyPressEvent(self, event: QKeyEvent):
+        if self.board.game_over or self.board.game_win:
+            return
         select_button = self.select_button
         if select_button is None:
             return super().keyPressEvent(event)
         select_style = "QPushButton {border:2px solid rgb(0,255,0)}"
         btn = self.buttons[select_button[0]][select_button[1]]
         btn.setStyleSheet(btn.styleSheet().replace(select_style, ""))
+        
+        if not self.timer.isActive() and event.key() in (
+            Qt.Key_W,
+            Qt.Key_Up,
+            Qt.Key_S,
+            Qt.Key_Down,
+            Qt.Key_A,
+            Qt.Key_Left,
+            Qt.Key_D,
+            Qt.Key_Right,
+            Qt.Key_Q,
+            Qt.Key_X,
+            Qt.Key_C,
+            Qt.Key_P
+        ):
+            self.timer.start(1000)
+        elif event.key() == Qt.Key_P:
+            self.timer.stop()
 
         if event.key() in (Qt.Key_W, Qt.Key_Up):
             select_button[0] = (select_button[0] - 1) % self.board.height
@@ -358,18 +392,12 @@ class MineSweeper(QMainWindow):
             self.on_right_click(select_button[1], select_button[0])
         elif event.key() == Qt.Key_C:
             self.on_double_click(select_button[1], select_button[0])
-        elif event.key() == Qt.Key_P:
-            if self.timer.isActive():
-                self.timer.stop()
-            else:
-                self.timer.start(1000)
         btn = self.buttons[select_button[0]][select_button[1]]
         btn.setStyleSheet(f"{btn.styleSheet()} {select_style}")
         return super().keyPressEvent(event)
 
     def update_mines_left_label(self):
-        # 更新剩余地雷数标签
-        self.mine_left_label.setText(str(self.board.mine_left))
+        self.mine_left_label.setText(str(self.board.mine_left))  # 更新剩余地雷数标签
 
     def update_timer(self):
         self.time += 1
@@ -429,7 +457,7 @@ class MineSweeper(QMainWindow):
 
 
 if __name__ == "__main__":
-    
+
     app = QApplication(sys.argv)
     sweeper = MineSweeper()
     sweeper.show()
